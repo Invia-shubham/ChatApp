@@ -80,8 +80,10 @@ app.post("/logout", (req, res) => {
   req.session.destroy();
   res.send("Logged out");
 });
+
+// Track online users
 const onlineUsers = new Map();
-// Socket.IO connection
+
 io.on("connection", (socket) => {
   const user = socket.handshake.session.user;
   if (!user) {
@@ -90,21 +92,14 @@ io.on("connection", (socket) => {
     return;
   }
 
-  console.log(`📡 ${user.username} connected`);
-
-  const username = socket.handshake.session.user?.username || "Unknown";
-
+  const username = user.username;
   onlineUsers.set(socket.id, username);
+  console.log(`📡 ${username} connected`);
 
-  // Notify all clients about the updated online user list
+  // Notify clients about online users
   io.emit("online users", Array.from(new Set(onlineUsers.values())));
 
-  socket.on("disconnect", () => {
-    onlineUsers.delete(socket.id);
-    io.emit("online users", Array.from(new Set(onlineUsers.values())));
-    console.log("👋 User disconnected");
-  });
-
+  // Send message history
   Message.find()
     .sort({ time: 1 })
     .limit(50)
@@ -112,23 +107,49 @@ io.on("connection", (socket) => {
       socket.emit("chat history", messages);
     });
 
+  // Handle new message
   socket.on("chat message", async (msg) => {
     const newMsg = new Message({
-      user: user.username,
+      user: username,
       text: msg.text,
       time: new Date(),
     });
 
     await newMsg.save();
-    io.emit("chat message", {
-      user: user.username,
-      text: msg.text,
-      time: new Date(),
-    });
+    io.emit("chat message", newMsg);
   });
 
+  // Handle message edit
+  socket.on("edit message", async ({ messageId, newText }) => {
+    try {
+      const updated = await Message.findByIdAndUpdate(
+        messageId,
+        { text: newText },
+        { new: true }
+      );
+      if (updated) {
+        io.emit("message edited", updated);
+      }
+    } catch (err) {
+      console.error("Edit failed", err);
+    }
+  });
+
+  // Handle message delete
+  socket.on("delete message", async (messageId) => {
+    try {
+      await Message.findByIdAndDelete(messageId);
+      io.emit("message deleted", messageId);
+    } catch (err) {
+      console.error("Delete failed", err);
+    }
+  });
+
+  // Disconnect
   socket.on("disconnect", () => {
-    console.log(`👋 ${user.username} disconnected`);
+    onlineUsers.delete(socket.id);
+    io.emit("online users", Array.from(new Set(onlineUsers.values())));
+    console.log(`👋 ${username} disconnected`);
   });
 });
 
