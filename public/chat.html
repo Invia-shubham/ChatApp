@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chat Room</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f4f4f4;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      header {
+        background-color: #4caf50;
+        color: white;
+        padding: 15px;
+        text-align: center;
+        font-size: 20px;
+      }
+
+      #online-users {
+        padding: 10px;
+        border-bottom: 1px solid #ccc;
+        background: #fff;
+        font-size: 14px;
+        white-space: nowrap;
+        overflow-x: auto;
+      }
+
+      #chat-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 10px;
+        overflow-y: auto;
+        background: #e5ddd5;
+      }
+
+      .message {
+        max-width: 70%;
+        margin: 5px 10px;
+        padding: 10px;
+        border-radius: 10px;
+        clear: both;
+        position: relative;
+        word-wrap: break-word;
+        box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+      }
+
+      .own {
+        background-color: #dcf8c6;
+        align-self: flex-end;
+        margin-left: auto;
+      }
+
+      .other {
+        background-color: #fff;
+        border: 1px solid #ccc;
+        align-self: flex-start;
+        margin-right: auto;
+      }
+
+      .message > div:first-child {
+        font-weight: bold;
+        margin-bottom: 4px;
+      }
+
+      .timestamp {
+        font-size: 0.75em;
+        color: #777;
+        text-align: right;
+        margin-top: 4px;
+      }
+
+      #chat-form {
+        display: flex;
+        padding: 10px;
+        border-top: 1px solid #ccc;
+        background: #fff;
+      }
+
+      #msg-input {
+        flex: 1;
+        padding: 10px;
+        border-radius: 20px;
+        border: 1px solid #ccc;
+        outline: none;
+        margin-right: 10px;
+      }
+
+      #chat-form button {
+        padding: 10px 20px;
+        border: none;
+        background-color: #4caf50;
+        color: white;
+        border-radius: 20px;
+        cursor: pointer;
+      }
+
+      #chat-form button:hover {
+        background-color: #45a049;
+      }
+    </style>
+  </head>
+  <body>
+    <header>🌐 Chat Room</header>
+
+    <div id="online-users">
+      <strong>Online: </strong><span id="users-list"></span>
+    </div>
+
+    <div id="chat-container"></div>
+
+    <form id="chat-form">
+      <input
+        id="msg-input"
+        list="users-datalist"
+        autocomplete="off"
+        placeholder="Type a message..."
+        required
+      />
+      <datalist id="users-datalist"></datalist>
+      <button>Send</button>
+    </form>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      fetch("/me").then(async (res) => {
+        if (!res.ok) {
+          window.location.href = "/index.html";
+          return;
+        }
+        const data = await res.json();
+        const username = data.user.username;
+        const socket = io();
+
+        const form = document.getElementById("chat-form");
+        const input = document.getElementById("msg-input");
+        const chatContainer = document.getElementById("chat-container");
+        const usersList = document.getElementById("users-list");
+        const dataList = document.getElementById("users-datalist");
+
+        form.addEventListener("submit", (e) => {
+          e.preventDefault();
+          if (input.value.trim()) {
+            socket.emit("chat message", { text: input.value.trim() });
+            input.value = "";
+          }
+        });
+
+        socket.on("online users", (users) => {
+          usersList.textContent = users.join(", ");
+          dataList.innerHTML = "";
+          users.forEach((user) => {
+            const option = document.createElement("option");
+            option.value = user;
+            dataList.appendChild(option);
+          });
+        });
+
+        socket.on("chat history", (msgs) => {
+          msgs.forEach((msg) => addMsg(msg));
+        });
+
+        socket.on("chat message", (msg) => {
+          addMsg(msg);
+        });
+
+        function addMsg(msg) {
+          const messageDiv = document.createElement("div");
+          messageDiv.classList.add("message");
+          messageDiv.classList.add(msg.user === username ? "own" : "other");
+
+          const name = document.createElement("div");
+          name.textContent = msg.user;
+
+          const content = document.createElement("div");
+          content.innerHTML = parseMentions(msg.text);
+
+          const time = document.createElement("div");
+          time.className = "timestamp";
+          time.textContent = formatTime(msg.time);
+
+          messageDiv.appendChild(name);
+          messageDiv.appendChild(content);
+          messageDiv.appendChild(time);
+
+          chatContainer.appendChild(messageDiv);
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function parseMentions(text) {
+          return text.replace(/@(\w+)/g, (match, user) => {
+            return `<span style="color:#1a73e8; font-weight:bold;">@${user}</span>`;
+          });
+        }
+
+        function formatTime(timestamp) {
+          const date = new Date(timestamp);
+          const now = new Date();
+          const isToday = date.toDateString() === now.toDateString();
+
+          if (isToday)
+            return `Today ${date.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}`;
+
+          const yesterday = new Date(now);
+          yesterday.setDate(now.getDate() - 1);
+          if (date.toDateString() === yesterday.toDateString()) {
+            return `Yesterday ${date.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}`;
+          }
+
+          return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}`;
+        }
+      });
+    </script>
+  </body>
+</html>
