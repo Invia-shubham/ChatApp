@@ -18,6 +18,7 @@ const io = socketIo(server);
 // Middleware
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+const userSocketMap = new Map(); // username -> socket.id
 
 // MongoDB Connection
 const MONGO_URL =
@@ -91,7 +92,7 @@ io.on("connection", (socket) => {
     socket.disconnect();
     return;
   }
-
+  userSocketMap.set(user.username, socket.id);
   const username = user.username;
   onlineUsers.set(socket.id, username);
   console.log(`📡 ${username} connected`);
@@ -100,23 +101,46 @@ io.on("connection", (socket) => {
   io.emit("online users", Array.from(new Set(onlineUsers.values())));
 
   // Send message history
-  Message.find()
-    .sort({ time: 1 })
-    .limit(50)
-    .then((messages) => {
-      socket.emit("chat history", messages);
-    });
+//   Message.find()
+//     .sort({ time: 1 })
+//     .limit(50)
+//     .then((messages) => {
+//       socket.emit("chat history", messages);
+//     });
+
+    // Send private messages between the user and each other user
+Message.find({
+  $or: [
+    { user: user.username },
+    { to: user.username }
+  ]
+}).sort({ time: 1 }).then((messages) => {
+  socket.emit("chat history", messages);
+});
+
 
   // Handle new message
   socket.on("chat message", async (msg) => {
     const newMsg = new Message({
-      user: username,
+      user: user.username,
       text: msg.text,
       time: new Date(),
+      to: msg.to || null,
     });
 
     await newMsg.save();
-    io.emit("chat message", newMsg);
+
+    if (msg.to) {
+      // Private message
+      const targetSocketId = userSocketMap.get(msg.to);
+      if (targetSocketId) {
+        io.to(targetSocketId).emit("chat message", newMsg);
+        socket.emit("chat message", newMsg); // Also show to sender
+      }
+    } else {
+      // Public message
+      io.emit("chat message", newMsg);
+    }
   });
 
   // Handle message edit
@@ -147,6 +171,7 @@ io.on("connection", (socket) => {
 
   // Disconnect
   socket.on("disconnect", () => {
+    userSocketMap.delete(user.username);
     onlineUsers.delete(socket.id);
     io.emit("online users", Array.from(new Set(onlineUsers.values())));
     console.log(`👋 ${username} disconnected`);

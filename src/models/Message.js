@@ -1,9 +1,10 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const MessageSchema = new mongoose.Schema({
-  user: String,
+const messageSchema = new mongoose.Schema({
+  user: String,       // Sender
   text: String,
-  time: Date,
+  time: { type: Date, default: Date.now },
+  to: String,         // Optional: Receiver for private chat
 });
 
-module.exports = mongoose.model('Message', MessageSchema);
+module.exports = mongoose.model("Message", messageSchema);
