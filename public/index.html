@@ -1,171 +1,203 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Login & Signup</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #f0f2f5;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-    }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login & Signup</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
 
-    .container {
-      background: #fff;
-      padding: 30px 40px;
-      border-radius: 10px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-      max-width: 400px;
-      width: 100%;
-    }
+      body {
+        font-family: "Segoe UI", sans-serif;
+        background: #f0f2f5;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
 
-    h2 {
-      text-align: center;
-      margin-bottom: 20px;
-      color: #333;
-    }
+      .container {
+        background: #fff;
+        width: 100%;
+        max-width: 360px;
+        padding: 30px 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      }
 
-    form {
-      display: flex;
-      flex-direction: column;
-      gap: 15px;
-    }
+      h2 {
+        text-align: center;
+        margin-bottom: 24px;
+        color: #333;
+        font-size: 24px;
+      }
 
-    input {
-      padding: 12px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      font-size: 16px;
-    }
+      form {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
 
-    button {
-      padding: 12px;
-      background-color: #007bff;
-      color: #fff;
-      font-size: 16px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-    }
+      input {
+        padding: 14px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        font-size: 16px;
+        width: 100%;
+        transition: border-color 0.3s ease;
+      }
 
-    button:hover {
-      background-color: #0056b3;
-    }
+      input:focus {
+        border-color: #007bff;
+        outline: none;
+      }
 
-    .toggle-password {
-      cursor: pointer;
-      font-size: 14px;
-      color: #007bff;
-      text-align: right;
-    }
+      button {
+        padding: 14px;
+        background-color: #007bff;
+        color: #fff;
+        font-size: 16px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+      }
 
-    .form-switch {
-      text-align: center;
-      margin-top: 15px;
-      font-size: 14px;
-    }
+      button:hover {
+        background-color: #0056b3;
+      }
 
-    .form-switch a {
-      color: #007bff;
-      cursor: pointer;
-      text-decoration: none;
-    }
+      .toggle-password {
+        font-size: 14px;
+        color: #007bff;
+        text-align: right;
+        cursor: pointer;
+        margin-top: -10px;
+      }
 
-    .hidden {
-      display: none;
-    }
+      .form-switch {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 14px;
+      }
 
-    .loading {
-      opacity: 0.6;
-      pointer-events: none;
-    }
-  </style>
-</head>
-<body>
+      .form-switch a {
+        color: #007bff;
+        text-decoration: none;
+        cursor: pointer;
+      }
 
-<div class="container">
-  <h2 id="form-title">Login</h2>
+      .hidden {
+        display: none;
+      }
 
-  <form id="login-form">
-    <input name="username" placeholder="Username" required />
-    <input name="password" type="password" placeholder="Password" required />
-    <div class="toggle-password" onclick="togglePassword('login-form')">Show Password</div>
-    <button type="submit">Login</button>
-  </form>
+      .loading {
+        opacity: 0.6;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2 id="form-title">Login</h2>
 
-  <form id="signup-form" class="hidden">
-    <input name="username" placeholder="Username" required />
-    <input name="password" type="password" placeholder="Password" required />
-    <div class="toggle-password" onclick="togglePassword('signup-form')">Show Password</div>
-    <button type="submit">Signup</button>
-  </form>
+      <form id="login-form">
+        <input name="username" placeholder="Username" required />
+        <input
+          name="password"
+          type="password"
+          placeholder="Password"
+          required
+        />
+        <div class="toggle-password" onclick="togglePassword('login-form')">
+          Show Password
+        </div>
+        <button type="submit">Login</button>
+      </form>
 
-  <div class="form-switch">
-    <span id="switch-text">Don't have an account? <a onclick="switchForm()">Sign up</a></span>
-  </div>
-</div>
+      <form id="signup-form" class="hidden">
+        <input name="username" placeholder="Username" required />
+        <input
+          name="password"
+          type="password"
+          placeholder="Password"
+          required
+        />
+        <div class="toggle-password" onclick="togglePassword('signup-form')">
+          Show Password
+        </div>
+        <button type="submit">Signup</button>
+      </form>
 
-<script>
-  function togglePassword(formId) {
-    const form = document.getElementById(formId);
-    const passwordInput = form.querySelector('input[type="password"], input[type="text"]');
-    const toggleText = form.querySelector('.toggle-password');
-    const isPassword = passwordInput.type === 'password';
-    passwordInput.type = isPassword ? 'text' : 'password';
-    toggleText.textContent = isPassword ? 'Hide Password' : 'Show Password';
-  }
+      <div class="form-switch">
+        <span id="switch-text"
+          >Don't have an account? <a onclick="switchForm()">Sign up</a></span
+        >
+      </div>
+    </div>
 
-  function switchForm() {
-    const loginForm = document.getElementById("login-form");
-    const signupForm = document.getElementById("signup-form");
-    const formTitle = document.getElementById("form-title");
-    const switchText = document.getElementById("switch-text");
+    <script>
+      function togglePassword(formId) {
+        const form = document.getElementById(formId);
+        const passwordInput = form.querySelector(
+          'input[type="password"], input[type="text"]'
+        );
+        const toggleText = form.querySelector(".toggle-password");
+        const isPassword = passwordInput.type === "password";
+        passwordInput.type = isPassword ? "text" : "password";
+        toggleText.textContent = isPassword ? "Hide Password" : "Show Password";
+      }
 
-    if (loginForm.classList.contains("hidden")) {
-      loginForm.classList.remove("hidden");
-      signupForm.classList.add("hidden");
-      formTitle.textContent = "Login";
-      switchText.innerHTML = `Don't have an account? <a onclick="switchForm()">Sign up</a>`;
-    } else {
-      signupForm.classList.remove("hidden");
-      loginForm.classList.add("hidden");
-      formTitle.textContent = "Sign up";
-      switchText.innerHTML = `Already have an account? <a onclick="switchForm()">Login</a>`;
-    }
-  }
+      function switchForm() {
+        const loginForm = document.getElementById("login-form");
+        const signupForm = document.getElementById("signup-form");
+        const formTitle = document.getElementById("form-title");
+        const switchText = document.getElementById("switch-text");
 
-  async function handleFormSubmit(e, endpoint) {
-    e.preventDefault();
-    const form = e.target;
-    form.classList.add("loading");
+        if (loginForm.classList.contains("hidden")) {
+          loginForm.classList.remove("hidden");
+          signupForm.classList.add("hidden");
+          formTitle.textContent = "Login";
+          switchText.innerHTML = `Don't have an account? <a onclick="switchForm()">Sign up</a>`;
+        } else {
+          signupForm.classList.remove("hidden");
+          loginForm.classList.add("hidden");
+          formTitle.textContent = "Sign up";
+          switchText.innerHTML = `Already have an account? <a onclick="switchForm()">Login</a>`;
+        }
+      }
 
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: form.username.value,
-        password: form.password.value,
-      }),
-    });
+      async function handleFormSubmit(e, endpoint) {
+        e.preventDefault();
+        const form = e.target;
+        form.classList.add("loading");
 
-    form.classList.remove("loading");
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: form.username.value,
+            password: form.password.value,
+          }),
+        });
 
-    if (res.ok) {
-      window.location.href = "/chat.html";
-    } else {
-      alert("Operation failed: " + (await res.text()));
-    }
-  }
+        form.classList.remove("loading");
 
-  document.getElementById("login-form").onsubmit = (e) => handleFormSubmit(e, "/login");
-  document.getElementById("signup-form").onsubmit = (e) => handleFormSubmit(e, "/signup");
-</script>
+        if (res.ok) {
+          window.location.href = "/chat.html";
+        } else {
+          alert("Operation failed: " + (await res.text()));
+        }
+      }
 
-</body>
+      document.getElementById("login-form").onsubmit = (e) =>
+        handleFormSubmit(e, "/login");
+      document.getElementById("signup-form").onsubmit = (e) =>
+        handleFormSubmit(e, "/signup");
+    </script>
+  </body>
 </html>

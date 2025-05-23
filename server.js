@@ -82,6 +82,17 @@ app.post("/logout", (req, res) => {
   res.send("Logged out");
 });
 
+// In your Express backend
+app.get("/all-users", async (req, res) => {
+  try {
+    const users = await User.find({}, "username"); // only return username field
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch users" });
+  }
+});
+
+
 // Track online users
 const onlineUsers = new Map();
 

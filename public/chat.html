@@ -197,7 +197,29 @@
       </aside>
 
       <main id="main-chat">
-        <header>🌐 Chat Room</header>
+        <header
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          "
+        >
+          <span>🌐 Chat Room</span>
+          <button
+            id="logout-btn"
+            style="
+              padding: 8px 12px;
+              background: #f44336;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+            "
+          >
+            Log Out
+          </button>
+        </header>
+
         <div id="chat-container"></div>
         <form id="chat-form">
           <select id="recipient-select">
@@ -223,6 +245,14 @@
           window.location.href = "/index.html";
           return;
         }
+
+        document.getElementById("logout-btn").addEventListener("click", () => {
+          fetch("/logout", { method: "POST" }).then((res) => {
+            if (res.ok) {
+              window.location.href = "/index.html"; // Redirect to login or home page
+            }
+          });
+        });
 
         const data = await res.json();
         const username = data.user.username;
