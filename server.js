@@ -158,20 +158,25 @@ io.on("connection", async (socket) => {
 
   // Typing Indicator
 socket.on("typing", ({ username, to }) => {
-  const payload = { username };
+  console.log(`[SERVER] Typing from: ${username}, to: ${to}`);
+
+  const payload = { username, to };
 
   if (to) {
-    // Private typing
-    const recipientSocket = getSocketByUsername(to); // You must track this
-if (recipientSocket) {
-  io.to(recipientSocket).emit("typing", payload); // ✅ Correct
-}
+    const recipientSocket = getSocketByUsername(to);
+    console.log(`[SERVER] Target socket for ${to}:`, recipientSocket?.id);
 
+    if (recipientSocket) {
+      io.to(recipientSocket.id).emit("typing", payload);
+    }
   } else {
-    // Public typing
+    console.log(`[SERVER] Public typing from ${username}`);
     socket.broadcast.emit("typing", payload);
   }
 });
+
+
+
 
 
   // Edit message
@@ -231,8 +236,10 @@ async function sendUsersWithStatus() {
 
 function getSocketByUsername(username) {
   const socketId = userSocketMap.get(username);
+  console.log(`[SERVER] getSocketByUsername(${username}) = ${socketId}`);
   return io.sockets.sockets.get(socketId);
 }
+
 
 
 // Start server

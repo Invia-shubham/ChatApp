@@ -315,29 +315,43 @@
 
         let typingTimeoutId;
 
-        msgInput.addEventListener("input", () => {
-          const recipient = recipientSelect.value || null;
-          socket.emit("typing", { username, to: recipient });
+msgInput.addEventListener("input", () => {
+  const recipient = recipientSelect.value || null;
+  console.log(`[CLIENT] Sending typing event. To: ${recipient}`);
 
-          clearTimeout(typingTimeout);
-          typingTimeout = setTimeout(() => {
-            // Optional: emit "stop typing" if you add support later
-          }, 3000);
-        });
+  socket.emit("typing", {
+    username,
+    to: recipient,
+  });
 
-        socket.on("typing", ({ username: typingUser }) => {
-          if (
-            (currentChatUser === "" && !recipientSelect.value) ||
-            currentChatUser === typingUser
-          ) {
-            typingIndicator.textContent = `${typingUser} is typing...`;
+  clearTimeout(typingTimeout);
+  typingTimeout = setTimeout(() => {
+    // Optional: emit stop typing
+  }, 3000);
+});
 
-            clearTimeout(typingTimeoutId);
-            typingTimeoutId = setTimeout(() => {
-              typingIndicator.textContent = "";
-            }, 3000);
-          }
-        });
+
+socket.on("typing", ({ username: typingUser, to }) => {
+  console.log(`[CLIENT] Typing from ${typingUser}, to: ${to}`);
+  console.log(`[CLIENT] currentChatUser: ${currentChatUser}, self: ${username}`);
+
+  const isPublicChat = currentChatUser === "" && !to;
+  const isPrivateChat = currentChatUser === typingUser && to === username;
+
+  if (isPublicChat || isPrivateChat) {
+    typingIndicator.textContent = `${typingUser} is typing...`;
+
+    clearTimeout(typingTimeoutId);
+    typingTimeoutId = setTimeout(() => {
+      typingIndicator.textContent = "";
+    }, 3000);
+  }
+});
+
+
+
+
+
         const publicChatBtn = document.getElementById("public-chat-btn");
 
         const chatHeaderTitle = document.getElementById("chat-header-title");
