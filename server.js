@@ -157,27 +157,21 @@ io.on("connection", async (socket) => {
   });
 
   // Typing Indicator
-socket.on("typing", ({ username, to }) => {
-  console.log(`[SERVER] Typing from: ${username}, to: ${to}`);
+  socket.on("typing", ({ username, to }) => {
+    const payload = { username, to };
 
-  const payload = { username, to };
+    if (to) {
+      const recipientSocket = getSocketByUsername(to);
+      console.log(`[SERVER] Target socket for ${to}:`, recipientSocket?.id);
 
-  if (to) {
-    const recipientSocket = getSocketByUsername(to);
-    console.log(`[SERVER] Target socket for ${to}:`, recipientSocket?.id);
-
-    if (recipientSocket) {
-      io.to(recipientSocket.id).emit("typing", payload);
+      if (recipientSocket) {
+        io.to(recipientSocket.id).emit("typing", payload);
+      }
+    } else {
+      console.log(`[SERVER] Public typing from ${username}`);
+      socket.broadcast.emit("typing", payload);
     }
-  } else {
-    console.log(`[SERVER] Public typing from ${username}`);
-    socket.broadcast.emit("typing", payload);
-  }
-});
-
-
-
-
+  });
 
   // Edit message
   socket.on("edit message", async ({ messageId, newText }) => {
@@ -236,11 +230,8 @@ async function sendUsersWithStatus() {
 
 function getSocketByUsername(username) {
   const socketId = userSocketMap.get(username);
-  console.log(`[SERVER] getSocketByUsername(${username}) = ${socketId}`);
   return io.sockets.sockets.get(socketId);
 }
-
-
 
 // Start server
 server.listen(3000, () => {
