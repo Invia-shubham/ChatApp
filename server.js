@@ -151,6 +151,29 @@ io.on("connection", async (socket) => {
     }
   });
 
+  socket.on("set username", (username) => {
+    userSocketMap.set(username, socket);
+    socket.username = username;
+  });
+
+  // Typing Indicator
+socket.on("typing", ({ username, to }) => {
+  const payload = { username };
+
+  if (to) {
+    // Private typing
+    const recipientSocket = getSocketByUsername(to); // You must track this
+if (recipientSocket) {
+  io.to(recipientSocket).emit("typing", payload); // ✅ Correct
+}
+
+  } else {
+    // Public typing
+    socket.broadcast.emit("typing", payload);
+  }
+});
+
+
   // Edit message
   socket.on("edit message", async ({ messageId, newText }) => {
     try {
@@ -204,6 +227,11 @@ async function sendUsersWithStatus() {
   });
 
   io.emit("users with status", usersWithStatus);
+}
+
+function getSocketByUsername(username) {
+  const socketId = userSocketMap.get(username);
+  return io.sockets.sockets.get(socketId);
 }
 
 

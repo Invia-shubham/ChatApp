@@ -236,6 +236,11 @@
               style="font-size: 18px; font-weight: bold"
               >🌐 Public Chat</span
             >
+            <div
+              id="typing-indicator"
+              style="padding: 10px; font-style: italic; color: #666"
+            ></div>
+
             <!-- <div
       id="last-seen-info"
       style="font-size: 13px; color: #c8e6c9; margin-top: 4px;"
@@ -306,6 +311,33 @@
         const dataList = document.getElementById("users-datalist");
         const recipientSelect = document.getElementById("recipient-select");
         const msgInput = document.getElementById("msg-input");
+        const typingIndicator = document.getElementById("typing-indicator");
+
+        let typingTimeoutId;
+
+        msgInput.addEventListener("input", () => {
+          const recipient = recipientSelect.value || null;
+          socket.emit("typing", { username, to: recipient });
+
+          clearTimeout(typingTimeout);
+          typingTimeout = setTimeout(() => {
+            // Optional: emit "stop typing" if you add support later
+          }, 3000);
+        });
+
+        socket.on("typing", ({ username: typingUser }) => {
+          if (
+            (currentChatUser === "" && !recipientSelect.value) ||
+            currentChatUser === typingUser
+          ) {
+            typingIndicator.textContent = `${typingUser} is typing...`;
+
+            clearTimeout(typingTimeoutId);
+            typingTimeoutId = setTimeout(() => {
+              typingIndicator.textContent = "";
+            }, 3000);
+          }
+        });
         const publicChatBtn = document.getElementById("public-chat-btn");
 
         const chatHeaderTitle = document.getElementById("chat-header-title");
