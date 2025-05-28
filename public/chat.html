@@ -42,15 +42,20 @@
         overflow-y: auto;
         padding: 10px;
       }
+      #users-list span.selected-user {
+        background: #c8e6c9; /* light green background */
+        font-weight: bold;
+      }
 
       #users-list span {
         display: block;
-        padding: 10px;
+        padding: 10px 10px 10px 30px; /* left padding for status dot */
         margin-bottom: 5px;
         border-radius: 6px;
         background: #ffffff;
         color: #333;
         cursor: pointer;
+        position: relative;
         transition: background 0.2s;
       }
 
@@ -172,6 +177,24 @@
         padding: 2px 5px;
         color: #1976d2;
       }
+      .status-dot {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: #ccc; /* default is offline (gray) */
+      }
+
+      .status-online {
+        background-color: #4caf50; /* green for online */
+      }
+      #public-chat-btn.selected-user {
+        background: #4caf50 !important;
+        color: white;
+      }
     </style>
   </head>
   <body>
@@ -202,18 +225,34 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding: 20px;
+            background: #128c7e;
+            color: white;
           "
         >
-          <span>🌐 Chat Room</span>
+          <div style="display: flex; flex-direction: column">
+            <span
+              id="chat-header-title"
+              style="font-size: 18px; font-weight: bold"
+              >🌐 Public Chat</span
+            >
+            <!-- <div
+      id="last-seen-info"
+      style="font-size: 13px; color: #c8e6c9; margin-top: 4px;"
+    ></div> -->
+          </div>
+
           <button
             id="logout-btn"
             style="
-              padding: 8px 12px;
+              padding: 8px 14px;
               background: #f44336;
               color: white;
               border: none;
-              border-radius: 4px;
+              border-radius: 6px;
+              font-size: 14px;
               cursor: pointer;
+              transition: background 0.3s;
             "
           >
             Log Out
@@ -258,6 +297,8 @@
         const username = data.user.username;
         const socket = io();
 
+        // loadAllUsers();
+
         const form = document.getElementById("chat-form");
         const input = document.getElementById("msg-input");
         const chatContainer = document.getElementById("chat-container");
@@ -266,11 +307,30 @@
         const recipientSelect = document.getElementById("recipient-select");
         const msgInput = document.getElementById("msg-input");
         const publicChatBtn = document.getElementById("public-chat-btn");
+
+        const chatHeaderTitle = document.getElementById("chat-header-title");
+
+        function updateHeaderTitle() {
+          if (currentChatUser === "") {
+            chatHeaderTitle.textContent = "🌐 Public Chat";
+          } else {
+            chatHeaderTitle.textContent = `🌐 ${currentChatUser}`;
+          }
+        }
+
         publicChatBtn.addEventListener("click", () => {
           currentChatUser = "";
           recipientSelect.value = "";
           msgInput.placeholder = "Type a message...";
           renderMessages();
+
+          document.querySelectorAll("#users-list span").forEach((el) => {
+            el.classList.remove("selected-user");
+          });
+
+          publicChatBtn.classList.add("selected-user");
+
+          updateHeaderTitle(); // <-- Add this here
         });
 
         form.addEventListener("submit", (e) => {
@@ -283,35 +343,6 @@
             });
             input.value = "";
           }
-        });
-
-        socket.on("online users", (users) => {
-          usersList.innerHTML = "";
-          dataList.innerHTML = "";
-          recipientSelect.innerHTML = '<option value="">Public</option>';
-
-          users.forEach((user) => {
-            const option = document.createElement("option");
-            option.value = user;
-            option.textContent = user;
-            recipientSelect.appendChild(option);
-
-            const datalistOption = document.createElement("option");
-            datalistOption.value = user;
-            dataList.appendChild(datalistOption);
-
-            const userSpan = document.createElement("span");
-            userSpan.textContent = user;
-            userSpan.onclick = () => {
-              recipientSelect.value = user;
-              currentChatUser = user;
-              renderMessages();
-              input.placeholder = `Message ${user}...`;
-              input.focus();
-            };
-
-            usersList.appendChild(userSpan);
-          });
         });
 
         // socket.on("chat history", (msgs) => {
@@ -349,6 +380,20 @@
         socket.on("chat message", (msg) => {
           allMessages.push(msg);
           renderMessages();
+        });
+
+        socket.on("users with status", (users) => {
+          renderUsersList(users);
+
+          const self = users.find((u) => u.username === username);
+          if (self && !self.online && self.lastSeen) {
+            document.getElementById("last-seen-info").textContent =
+              "Last seen: " + formatTime(self.lastSeen);
+          } else if (self && self.online) {
+            document.getElementById("last-seen-info").textContent = "Online";
+          } else {
+            document.getElementById("last-seen-info").textContent = "";
+          }
         });
 
         socket.on("message edited", (msg) => {
@@ -438,6 +483,66 @@
         function parseMentions(text) {
           return text.replace(/@(\w+)/g, (match, user) => {
             return `<span>@${user}</span>`;
+          });
+        }
+
+        async function loadAllUsers() {
+          try {
+            const res = await fetch("/all-users");
+            if (!res.ok) throw new Error("Failed to load users");
+            const allUsers = await res.json();
+            renderUsersList(allUsers);
+          } catch (e) {
+            console.error(e);
+          }
+        }
+
+        function renderUsersList(users) {
+          usersList.innerHTML = "";
+          recipientSelect.innerHTML = '<option value="">Public</option>';
+          dataList.innerHTML = "";
+
+          users.forEach((user) => {
+            if (user.username === username) return;
+
+            // Add to private chat dropdown
+            const option = document.createElement("option");
+            option.value = user.username;
+            option.textContent = user.username;
+            recipientSelect.appendChild(option);
+
+            const datalistOption = document.createElement("option");
+            datalistOption.value = user.username;
+            dataList.appendChild(datalistOption);
+
+            // Sidebar user list item
+            const userSpan = document.createElement("span");
+            userSpan.textContent = user.username;
+            userSpan.onclick = () => {
+              currentChatUser = user.username;
+              recipientSelect.value = user.username;
+              msgInput.placeholder = `Message ${user.username}...`;
+              renderMessages();
+
+              document.querySelectorAll("#users-list span").forEach((el) => {
+                el.classList.remove("selected-user");
+              });
+              publicChatBtn.classList.remove("selected-user");
+
+              userSpan.classList.add("selected-user");
+
+              updateHeaderTitle(); // <-- Add this here
+            };
+
+            // Create and attach status dot
+            const dot = document.createElement("div");
+            dot.classList.add("status-dot");
+            if (user.online) {
+              dot.classList.add("status-online");
+            }
+            userSpan.appendChild(dot);
+
+            usersList.appendChild(userSpan);
           });
         }
 

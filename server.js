@@ -82,7 +82,7 @@ app.post("/logout", (req, res) => {
   res.send("Logged out");
 });
 
-// In your Express backend
+// All users API
 app.get("/all-users", async (req, res) => {
   try {
     const users = await User.find({}, "username"); // only return username field
@@ -92,48 +92,45 @@ app.get("/all-users", async (req, res) => {
   }
 });
 
-
 // Track online users
-const onlineUsers = new Map();
+const onlineUsers = new Map(); // socket.id -> username
 
-io.on("connection", (socket) => {
+function isUserOnline(username) {
+  return Array.from(onlineUsers.values()).includes(username);
+}
+
+io.on("connection", async (socket) => {
   const user = socket.handshake.session.user;
+
   if (!user) {
     socket.emit("auth required");
     socket.disconnect();
     return;
   }
-  userSocketMap.set(user.username, socket.id);
+
   const username = user.username;
+
+  userSocketMap.set(username, socket.id);
   onlineUsers.set(socket.id, username);
   console.log(`📡 ${username} connected`);
 
-  // Notify clients about online users
-  io.emit("online users", Array.from(new Set(onlineUsers.values())));
+  await sendUsersWithStatus(); // notify all clients of updated status
 
-  // Send message history
-//   Message.find()
-//     .sort({ time: 1 })
-//     .limit(50)
-//     .then((messages) => {
-//       socket.emit("chat history", messages);
-//     });
+  // Send chat history (public + private for this user)
+  const messages = await Message.find({
+    $or: [
+      { to: null }, // public messages
+      { user: username },
+      { to: username },
+    ],
+  }).sort({ time: 1 });
 
-    // Send private messages between the user and each other user
-Message.find({
-  $or: [
-    { user: user.username },
-    { to: user.username }
-  ]
-}).sort({ time: 1 }).then((messages) => {
   socket.emit("chat history", messages);
-});
 
-
-  // Handle new message
+  // Handle chat messages
   socket.on("chat message", async (msg) => {
     const newMsg = new Message({
-      user: user.username,
+      user: username,
       text: msg.text,
       time: new Date(),
       to: msg.to || null,
@@ -142,19 +139,19 @@ Message.find({
     await newMsg.save();
 
     if (msg.to) {
-      // Private message
+      // Private
       const targetSocketId = userSocketMap.get(msg.to);
       if (targetSocketId) {
         io.to(targetSocketId).emit("chat message", newMsg);
-        socket.emit("chat message", newMsg); // Also show to sender
+        socket.emit("chat message", newMsg); // sender sees own message
       }
     } else {
-      // Public message
+      // Public
       io.emit("chat message", newMsg);
     }
   });
 
-  // Handle message edit
+  // Edit message
   socket.on("edit message", async ({ messageId, newText }) => {
     try {
       const updated = await Message.findByIdAndUpdate(
@@ -162,15 +159,13 @@ Message.find({
         { text: newText },
         { new: true }
       );
-      if (updated) {
-        io.emit("message edited", updated);
-      }
+      if (updated) io.emit("message edited", updated);
     } catch (err) {
       console.error("Edit failed", err);
     }
   });
 
-  // Handle message delete
+  // Delete message
   socket.on("delete message", async (messageId) => {
     try {
       await Message.findByIdAndDelete(messageId);
@@ -181,13 +176,36 @@ Message.find({
   });
 
   // Disconnect
-  socket.on("disconnect", () => {
-    userSocketMap.delete(user.username);
+  socket.on("disconnect", async () => {
+    userSocketMap.delete(username);
     onlineUsers.delete(socket.id);
-    io.emit("online users", Array.from(new Set(onlineUsers.values())));
     console.log(`👋 ${username} disconnected`);
+
+    // ✅ Save last seen timestamp
+    await User.updateOne({ username }, { lastSeen: new Date() });
+
+    await sendUsersWithStatus(); // notify all clients again
   });
 });
+
+// Broadcasts online/offline status of all users
+async function sendUsersWithStatus() {
+  const users = await User.find({}, "username lastSeen").lean();
+  const usersWithStatus = users.map((u) => ({
+    username: u.username,
+    online: isUserOnline(u.username),
+    lastSeen: u.lastSeen,
+  }));
+
+  // Sort users: online users first, then offline
+  usersWithStatus.sort((a, b) => {
+    if (a.online === b.online) return 0;
+    return a.online ? -1 : 1;
+  });
+
+  io.emit("users with status", usersWithStatus);
+}
+
 
 // Start server
 server.listen(3000, () => {
