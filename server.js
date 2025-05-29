@@ -7,6 +7,7 @@ const session = require("express-session");
 const MongoStore = require("connect-mongo");
 const bcrypt = require("bcrypt");
 const sharedSession = require("express-socket.io-session");
+const sendOtp = require("./src/sendOtp");
 
 const Message = require("./src/models/Message");
 const User = require("./src/models/User");
@@ -35,7 +36,9 @@ const sessionMiddleware = session({
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({ mongoUrl: MONGO_URL }),
-  cookie: { maxAge: 1000 * 60 * 60 * 24 },
+  cookie: { maxAge: 1000 * 60 * 60 * 24, 
+    // secure: true, sameSite: "strict" 
+  },
 });
 
 app.use(sessionMiddleware);
@@ -45,29 +48,52 @@ io.use(sharedSession(sessionMiddleware, { autoSave: true }));
 app.use(express.static("public"));
 
 // Auth Routes
-app.post("/signup", async (req, res) => {
-  const { username, password } = req.body;
-  const existingUser = await User.findOne({ username });
-  if (existingUser) return res.status(400).send("Username already exists");
 
-  const hashed = await bcrypt.hash(password, 10);
-  const user = new User({ username, password: hashed });
-  await user.save();
+// Send OTP (used for both login and signup)
+app.post("/send-otp", async (req, res) => {
+  const { email, username, mode } = req.body;
+  if (!email || !mode) return res.status(400).send("Missing email or mode");
 
-  req.session.user = { id: user._id, username: user.username };
-  res.status(200).send("Signup successful");
-});
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiry = new Date(Date.now() + 5 * 60 * 1000); // 5 mins
 
-app.post("/login", async (req, res) => {
-  const { username, password } = req.body;
-  const user = await User.findOne({ username });
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    return res.status(400).send("Invalid credentials");
+  let user = await User.findOne({ email });
+
+  if (mode === "signup") {
+    if (user) return res.status(400).send("User already exists");
+    user = new User({ email, username, otp, otpExpiry: expiry });
+  } else if (mode === "login") {
+    if (!user) return res.status(404).send("User not found");
+    user.otp = otp;
+    user.otpExpiry = expiry;
   }
 
-  req.session.user = { id: user._id, username: user.username };
-  res.status(200).send("Login successful");
+  await user.save();
+  await sendOtp(email, otp);
+
+  res.send("OTP sent");
 });
+
+
+// OTP verify for login or signup
+app.post("/verify-otp", async (req, res) => {
+  const { email, otp, mode } = req.body;
+  const user = await User.findOne({ email });
+
+  if (!user || user.otp !== otp || user.otpExpiry < new Date()) {
+    return res.status(400).send("Invalid or expired OTP");
+  }
+
+  user.otp = null;
+  user.otpExpiry = null;
+
+  await user.save();
+
+  req.session.user = { id: user._id, username: user.username, email: user.email };
+  res.send(`${mode === "login" ? "Login" : "Signup"} successful`);
+});
+
+
 
 app.get("/me", (req, res) => {
   if (req.session.user) {

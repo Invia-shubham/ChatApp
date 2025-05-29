@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login & Signup</title>
+    <title>Auth Page</title>
     <style>
       * {
         box-sizing: border-box;
@@ -11,7 +11,7 @@
 
       body {
         font-family: "Segoe UI", sans-serif;
-        background: #f0f2f5;
+        background: #eef1f5;
         margin: 0;
         padding: 0;
         display: flex;
@@ -23,17 +23,33 @@
       .container {
         background: #fff;
         width: 100%;
-        max-width: 360px;
-        padding: 30px 20px;
+        max-width: 400px;
+        padding: 30px 25px;
         border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
       }
 
-      h2 {
-        text-align: center;
+      .tabs {
+        display: flex;
+        justify-content: space-around;
         margin-bottom: 24px;
-        color: #333;
-        font-size: 24px;
+        border-bottom: 2px solid #ccc;
+      }
+
+      .tab {
+        flex: 1;
+        text-align: center;
+        padding: 10px;
+        cursor: pointer;
+        font-weight: bold;
+        color: #555;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+      }
+
+      .tab.active {
+        color: #007bff;
+        border-bottom: 3px solid #007bff;
       }
 
       form {
@@ -48,7 +64,6 @@
         border-radius: 8px;
         font-size: 16px;
         width: 100%;
-        transition: border-color 0.3s ease;
       }
 
       input:focus {
@@ -71,133 +86,97 @@
         background-color: #0056b3;
       }
 
-      .toggle-password {
-        font-size: 14px;
-        color: #007bff;
-        text-align: right;
-        cursor: pointer;
-        margin-top: -10px;
-      }
-
-      .form-switch {
-        text-align: center;
+      #otp-section {
+        display: none;
         margin-top: 20px;
-        font-size: 14px;
-      }
-
-      .form-switch a {
-        color: #007bff;
-        text-decoration: none;
-        cursor: pointer;
       }
 
       .hidden {
         display: none;
       }
-
-      .loading {
-        opacity: 0.6;
-        pointer-events: none;
-      }
     </style>
   </head>
   <body>
     <div class="container">
-      <h2 id="form-title">Login</h2>
+      <div class="tabs">
+        <div id="login-tab" class="tab active">Login</div>
+        <div id="signup-tab" class="tab">Sign Up</div>
+      </div>
 
-      <form id="login-form">
-        <input name="username" placeholder="Username" required />
-        <input
-          name="password"
-          type="password"
-          placeholder="Password"
-          required
-        />
-        <div class="toggle-password" onclick="togglePassword('login-form')">
-          Show Password
-        </div>
-        <button type="submit">Login</button>
+      <form id="auth-form">
+        <input type="text" id="username" placeholder="Username (Sign Up only)" class="hidden" />
+        <input type="email" id="email" placeholder="Email" required />
+        <button type="submit">Send OTP</button>
       </form>
 
-      <form id="signup-form" class="hidden">
-        <input name="username" placeholder="Username" required />
-        <input
-          name="password"
-          type="password"
-          placeholder="Password"
-          required
-        />
-        <div class="toggle-password" onclick="togglePassword('signup-form')">
-          Show Password
-        </div>
-        <button type="submit">Signup</button>
-      </form>
-
-      <div class="form-switch">
-        <span id="switch-text"
-          >Don't have an account? <a onclick="switchForm()">Sign up</a></span
-        >
+      <div id="otp-section">
+        <input type="text" id="otp" placeholder="Enter OTP" required />
+        <button id="verify-btn">Verify OTP</button>
       </div>
     </div>
 
     <script>
-      function togglePassword(formId) {
-        const form = document.getElementById(formId);
-        const passwordInput = form.querySelector(
-          'input[type="password"], input[type="text"]'
-        );
-        const toggleText = form.querySelector(".toggle-password");
-        const isPassword = passwordInput.type === "password";
-        passwordInput.type = isPassword ? "text" : "password";
-        toggleText.textContent = isPassword ? "Hide Password" : "Show Password";
-      }
+      const loginTab = document.getElementById("login-tab");
+      const signupTab = document.getElementById("signup-tab");
+      const usernameInput = document.getElementById("username");
+      const form = document.getElementById("auth-form");
+      const otpSection = document.getElementById("otp-section");
 
-      function switchForm() {
-        const loginForm = document.getElementById("login-form");
-        const signupForm = document.getElementById("signup-form");
-        const formTitle = document.getElementById("form-title");
-        const switchText = document.getElementById("switch-text");
+      let mode = "login";
 
-        if (loginForm.classList.contains("hidden")) {
-          loginForm.classList.remove("hidden");
-          signupForm.classList.add("hidden");
-          formTitle.textContent = "Login";
-          switchText.innerHTML = `Don't have an account? <a onclick="switchForm()">Sign up</a>`;
-        } else {
-          signupForm.classList.remove("hidden");
-          loginForm.classList.add("hidden");
-          formTitle.textContent = "Sign up";
-          switchText.innerHTML = `Already have an account? <a onclick="switchForm()">Login</a>`;
-        }
-      }
+      loginTab.addEventListener("click", () => {
+        mode = "login";
+        loginTab.classList.add("active");
+        signupTab.classList.remove("active");
+        usernameInput.classList.add("hidden");
+        usernameInput.required = false;
+      });
 
-      async function handleFormSubmit(e, endpoint) {
+      signupTab.addEventListener("click", () => {
+        mode = "signup";
+        signupTab.classList.add("active");
+        loginTab.classList.remove("active");
+        usernameInput.classList.remove("hidden");
+        usernameInput.required = true;
+      });
+
+      form.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const form = e.target;
-        form.classList.add("loading");
 
-        const res = await fetch(endpoint, {
+        const email = document.getElementById("email").value;
+        const username = usernameInput.value.trim();
+
+        const res = await fetch("/send-otp", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: form.username.value,
-            password: form.password.value,
-          }),
+          body: JSON.stringify({ email, username, mode }),
         });
 
-        form.classList.remove("loading");
+        if (res.ok) {
+          alert("OTP sent to your email.");
+          otpSection.style.display = "block";
+        } else {
+          alert(await res.text());
+        }
+      });
+
+      document.getElementById("verify-btn").addEventListener("click", async () => {
+        const email = document.getElementById("email").value;
+        const otp = document.getElementById("otp").value;
+
+        const res = await fetch("/verify-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, otp, mode }),
+        });
 
         if (res.ok) {
+          alert("Success!");
           window.location.href = "/chat.html";
         } else {
-          alert("Operation failed: " + (await res.text()));
+          alert(await res.text());
         }
-      }
-
-      document.getElementById("login-form").onsubmit = (e) =>
-        handleFormSubmit(e, "/login");
-      document.getElementById("signup-form").onsubmit = (e) =>
-        handleFormSubmit(e, "/signup");
+      });
     </script>
   </body>
 </html>
