@@ -58,9 +58,9 @@ module.exports = async function sendOtp(email, otp) {
 `;
 
   await transporter.sendMail({
-    from: '"Chat App" <your-email@gmail.com>',
+    from: '"Chat App" <shubham.mavesys@gmail.com>',
     to: email,
-    subject: "Your OTP Code",
+    subject: "🔐 Your One-Time Password for Chat App",
     text: `Your OTP is ${otp}. It expires in 5 minutes.`,
     html: htmlTemplate,
   });
