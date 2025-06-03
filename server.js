@@ -153,6 +153,31 @@ io.on("connection", async (socket) => {
 
   socket.emit("chat history", messages);
 
+  // Video call signaling handlers
+  socket.on("video-offer", ({ to, offer }) => {
+    const recipientSocketId = userSocketMap.get(to);
+    if (recipientSocketId) {
+      io.to(recipientSocketId).emit("video-offer", { from: socket.id, offer });
+    }
+  });
+
+  socket.on("video-answer", ({ to, answer }) => {
+    const recipientSocketId = userSocketMap.get(to);
+    if (recipientSocketId) {
+      io.to(recipientSocketId).emit("video-answer", { from: socket.id, answer });
+    }
+  });
+
+  socket.on("video-ice-candidate", ({ to, candidate }) => {
+    const recipientSocketId = userSocketMap.get(to);
+    if (recipientSocketId) {
+      io.to(recipientSocketId).emit("video-ice-candidate", {
+        from: socket.id,
+        candidate,
+      });
+    }
+  });
+
   // Handle chat messages
   socket.on("chat message", async (msg) => {
     const newMsg = new Message({

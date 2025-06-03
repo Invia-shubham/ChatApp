@@ -231,6 +231,44 @@
       </aside>
 
       <main id="main-chat">
+        <div
+          id="video-call-container"
+          style="
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            background: #000;
+            padding: 10px;
+          "
+        >
+          <video
+            id="local-video"
+            autoplay
+            muted
+            playsinline
+            style="width: 45%; border-radius: 10px; background: black"
+          ></video>
+          <video
+            id="remote-video"
+            autoplay
+            playsinline
+            style="width: 45%; border-radius: 10px; background: black"
+          ></video>
+          <button
+            id="end-call-btn"
+            style="
+              margin-top: 10px;
+              padding: 8px 16px;
+              background: #f44336;
+              color: white;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+            "
+          >
+            End Call
+          </button>
+        </div>
         <header
           style="
             display: flex;
@@ -254,6 +292,19 @@
       style="font-size: 13px; color: #c8e6c9; margin-top: 4px;"
     ></div> -->
           </div>
+          <button
+            id="start-call-btn"
+            style="
+              background: #128c7e;
+              color: #fff;
+              border: none;
+              border-radius: 6px;
+              padding: 6px 12px;
+              cursor: pointer;
+            "
+          >
+            Start Call
+          </button>
 
           <button
             id="logout-btn"
@@ -320,6 +371,159 @@
         const recipientSelect = document.getElementById("recipient-select");
         const msgInput = document.getElementById("msg-input");
         const typingIndicator = document.getElementById("typing-indicator");
+        const startCallBtn = document.getElementById("start-call-btn");
+        const videoCallContainer = document.getElementById(
+          "video-call-container"
+        );
+        const localVideo = document.getElementById("local-video");
+        const remoteVideo = document.getElementById("remote-video");
+        const endCallBtn = document.getElementById("end-call-btn");
+
+        let localStream;
+        let peerConnection;
+        const config = {
+          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        };
+
+        startCallBtn.addEventListener("click", async () => {
+          if (!currentChatUser) {
+            alert("Please select a user to call.");
+            return;
+          }
+
+          videoCallContainer.style.display = "flex";
+
+          try {
+            localStream = await navigator.mediaDevices.getUserMedia({
+              video: true,
+              audio: true,
+            });
+
+            localVideo.srcObject = localStream;
+
+            peerConnection = new RTCPeerConnection(config);
+
+            // Add local tracks to peer connection
+            localStream.getTracks().forEach((track) => {
+              peerConnection.addTrack(track, localStream);
+            });
+
+            // Listen for remote tracks
+            peerConnection.ontrack = (event) => {
+              remoteVideo.srcObject = event.streams[0];
+            };
+
+            // ICE candidates sent to other peer via signaling
+            peerConnection.onicecandidate = (event) => {
+              if (event.candidate) {
+                socket.emit("video-ice-candidate", {
+                  to: currentChatUser,
+                  candidate: event.candidate,
+                });
+              }
+            };
+
+            // Create and send offer
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+
+            socket.emit("video-offer", {
+              to: currentChatUser,
+              offer,
+            });
+          } catch (err) {
+            console.error("Error accessing media devices.", err);
+          }
+        });
+
+        // Handle incoming video offer
+        socket.on("video-offer", async ({ from, offer }) => {
+          if (from !== currentChatUser) {
+            // You can optionally prompt user for incoming call accept/decline here
+            currentChatUser = from;
+            recipientSelect.value = from;
+            msgInput.placeholder = `Message ${from}...`;
+            renderMessages();
+            updateHeaderTitle();
+          }
+
+          videoCallContainer.style.display = "flex";
+
+          try {
+            localStream = await navigator.mediaDevices.getUserMedia({
+              video: true,
+              audio: true,
+            });
+
+            localVideo.srcObject = localStream;
+
+            peerConnection = new RTCPeerConnection(config);
+
+            localStream.getTracks().forEach((track) => {
+              peerConnection.addTrack(track, localStream);
+            });
+
+            peerConnection.ontrack = (event) => {
+              remoteVideo.srcObject = event.streams[0];
+            };
+
+            peerConnection.onicecandidate = (event) => {
+              if (event.candidate) {
+                socket.emit("video-ice-candidate", {
+                  to: from,
+                  candidate: event.candidate,
+                });
+              }
+            };
+
+            await peerConnection.setRemoteDescription(
+              new RTCSessionDescription(offer)
+            );
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+
+            socket.emit("video-answer", {
+              to: from,
+              answer,
+            });
+          } catch (err) {
+            console.error("Error handling video offer", err);
+          }
+        });
+
+        // Handle video answer
+        socket.on("video-answer", async ({ answer }) => {
+          if (!peerConnection) return;
+          await peerConnection.setRemoteDescription(
+            new RTCSessionDescription(answer)
+          );
+        });
+
+        // Handle ICE candidates from other peer
+        socket.on("video-ice-candidate", async ({ candidate }) => {
+          try {
+            await peerConnection.addIceCandidate(
+              new RTCIceCandidate(candidate)
+            );
+          } catch (e) {
+            console.error("Error adding received ice candidate", e);
+          }
+        });
+
+        endCallBtn.addEventListener("click", () => {
+          if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+          }
+          if (localStream) {
+            localStream.getTracks().forEach((track) => track.stop());
+            localStream = null;
+          }
+          videoCallContainer.style.display = "none";
+          remoteVideo.srcObject = null;
+          localVideo.srcObject = null;
+          alert("Call ended");
+        });
 
         let typingTimeoutId;
 
